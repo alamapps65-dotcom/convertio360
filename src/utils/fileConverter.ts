@@ -70,14 +70,14 @@ export function checkConversionSupport(
     'mp4', 'avi', 'mov', 'mkv', 'webm',
     'mp3', 'wav', 'aac', 'ogg', 'flac',
     'zip', 'rar', 'tar', '7z',
-    'epub', 'mobi', 'azw3'
+    'epub', 'mobi', 'azw3', 'odt', 'rtf'
   ];
 
   if (serverSideFormats.includes(from) || serverSideFormats.includes(to)) {
     return {
-      supported: false,
+      supported: true,
       type: 'server',
-      message: 'Requires server-side processing (not available in free version)'
+      message: 'Server-side conversion'
     };
   }
 
