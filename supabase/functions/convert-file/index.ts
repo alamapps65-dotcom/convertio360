@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const CONVERSION_SERVER_URL = Deno.env.get("CONVERSION_SERVER_URL") || "http://localhost:3001";
+const CONVERSION_SERVER_URL = Deno.env.get("CONVERSION_SERVER_URL") || "https://convertio360-production.up.railway.app";
 
 const SIMPLE_CONVERSIONS = ["txt", "md", "html", "json", "xml", "csv"];
 

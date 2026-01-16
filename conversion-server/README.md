@@ -2,6 +2,10 @@
 
 A Node.js server that handles file conversions for images, videos, and documents. Designed for easy deployment on Railway.
 
+## CRITICAL UPDATE - January 2026
+
+The server has been updated to store converted file data in the database. **You must redeploy to Railway** for conversions to work properly.
+
 ## Features
 
 - Image conversion (JPG, PNG, WEBP, GIF, etc.)

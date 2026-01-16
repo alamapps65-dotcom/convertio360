@@ -82,11 +82,13 @@ app.post('/convert', upload.single('file'), async (req, res) => {
 
     const outputBuffer = await fs.readFile(outputPath);
     const outputFilename = `${path.parse(file.originalname).name}.${outputFormat}`;
+    const outputBase64 = outputBuffer.toString('base64');
 
     await updateJobStatus(jobId, 'completed', {
       completed_at: new Date().toISOString(),
       output_filename: outputFilename,
-      output_size: outputBuffer.length
+      output_size: outputBuffer.length,
+      output_data: outputBase64
     });
 
     await fs.unlink(file.path);
