@@ -7,11 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const HETZNER_API_URL = Deno.env.get("HETZNER_API_URL") || "http://localhost:3001";
+const CONVERSION_SERVER_URL = Deno.env.get("CONVERSION_SERVER_URL") || "http://localhost:3001";
 
 const SIMPLE_CONVERSIONS = ["txt", "md", "html", "json", "xml", "csv"];
 
-function needsHetzner(inputFormat: string, outputFormat: string): boolean {
+function needsServerConversion(inputFormat: string, outputFormat: string): boolean {
   const isImage = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(inputFormat) ||
                   ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(outputFormat);
   const isVideo = ["mp4", "avi", "mov", "mkv", "webm", "flv"].includes(inputFormat) ||
@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
 
     const inputFormat = file.name.split(".").pop()?.toLowerCase() || "";
 
-    if (needsHetzner(inputFormat, outputFormat)) {
+    if (needsServerConversion(inputFormat, outputFormat)) {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -126,10 +126,10 @@ Deno.serve(async (req: Request) => {
       hetznerFormData.append("outputFormat", outputFormat);
       hetznerFormData.append("jobId", job.id);
 
-      fetch(`${HETZNER_API_URL}/convert`, {
+      fetch(`${CONVERSION_SERVER_URL}/convert`, {
         method: "POST",
         body: hetznerFormData,
-      }).catch(err => console.error("Failed to send to Hetzner:", err));
+      }).catch(err => console.error("Failed to send to conversion server:", err));
 
       return new Response(
         JSON.stringify({
