@@ -1,56 +1,51 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import fs from 'fs/promises';
-
-const execAsync = promisify(exec);
+import PDFDocument from 'pdfkit';
+import sharp from 'sharp';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
 
 export async function convertDocument(inputPath, outputFormat) {
   const outputPath = `/tmp/converted_${Date.now()}.${outputFormat}`;
 
   try {
-    switch (outputFormat.toLowerCase()) {
-      case 'pdf':
-        await execAsync(`libreoffice --headless --convert-to pdf --outdir /tmp ${inputPath}`);
-        const pdfPath = inputPath.replace(/\.[^/.]+$/, '.pdf');
-        await fs.rename(pdfPath, outputPath);
-        break;
-
-      case 'docx':
-        await execAsync(`pandoc ${inputPath} -o ${outputPath}`);
-        break;
-
-      case 'txt':
-        await execAsync(`pandoc ${inputPath} -t plain -o ${outputPath}`);
-        break;
-
-      case 'md':
-        await execAsync(`pandoc ${inputPath} -t markdown -o ${outputPath}`);
-        break;
-
-      case 'html':
-        await execAsync(`pandoc ${inputPath} -t html -o ${outputPath}`);
-        break;
-
-      case 'epub':
-        await execAsync(`pandoc ${inputPath} -o ${outputPath}`);
-        break;
-
-      case 'rtf':
-        await execAsync(`pandoc ${inputPath} -o ${outputPath}`);
-        break;
-
-      case 'odt':
-        await execAsync(`libreoffice --headless --convert-to odt --outdir /tmp ${inputPath}`);
-        const odtPath = inputPath.replace(/\.[^/.]+$/, '.odt');
-        await fs.rename(odtPath, outputPath);
-        break;
-
-      default:
-        throw new Error(`Unsupported output format: ${outputFormat}`);
+    if (outputFormat.toLowerCase() === 'pdf') {
+      return await convertImageToPDF(inputPath, outputPath);
     }
 
-    return outputPath;
+    throw new Error(`Unsupported output format: ${outputFormat}`);
   } catch (error) {
     throw new Error(`Document conversion failed: ${error.message}`);
   }
+}
+
+async function convertImageToPDF(inputPath, outputPath) {
+  const metadata = await sharp(inputPath).metadata();
+  const imageBuffer = await sharp(inputPath)
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  const doc = new PDFDocument({
+    size: [metadata.width, metadata.height],
+    margin: 0,
+    autoFirstPage: false
+  });
+
+  const writeStream = fs.createWriteStream(outputPath);
+  doc.pipe(writeStream);
+
+  doc.addPage({
+    size: [metadata.width, metadata.height],
+    margin: 0
+  });
+
+  doc.image(imageBuffer, 0, 0, {
+    width: metadata.width,
+    height: metadata.height
+  });
+
+  doc.end();
+
+  return new Promise((resolve, reject) => {
+    writeStream.on('finish', () => resolve(outputPath));
+    writeStream.on('error', reject);
+  });
 }

@@ -12,7 +12,8 @@
     "@supabase/supabase-js": "^2.57.4",
     "fluent-ffmpeg": "^2.1.2",
     "sharp": "^0.33.1",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "pdfkit": "^0.15.0"
   },
   "engines": {
     "node": ">=18.0.0"

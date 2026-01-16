@@ -64,20 +64,19 @@ app.post('/convert', upload.single('file'), async (req, res) => {
     });
 
     const fileType = await detectFileType(file.originalname);
+    const inputFormat = path.extname(file.originalname).toLowerCase().slice(1);
     let outputPath;
 
-    switch (fileType) {
-      case 'image':
-        outputPath = await convertImage(file.path, outputFormat);
-        break;
-      case 'video':
-        outputPath = await convertVideo(file.path, outputFormat);
-        break;
-      case 'document':
-        outputPath = await convertDocument(file.path, outputFormat);
-        break;
-      default:
-        throw new Error('Unsupported file type');
+    if (fileType === 'image' && outputFormat === 'pdf') {
+      outputPath = await convertDocument(file.path, outputFormat);
+    } else if (fileType === 'image') {
+      outputPath = await convertImage(file.path, outputFormat);
+    } else if (fileType === 'video') {
+      outputPath = await convertVideo(file.path, outputFormat);
+    } else if (fileType === 'document') {
+      outputPath = await convertDocument(file.path, outputFormat);
+    } else {
+      throw new Error('Unsupported file type');
     }
 
     const outputBuffer = await fs.readFile(outputPath);
