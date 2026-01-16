@@ -90,24 +90,9 @@ export default function HomePage() {
         throw new Error(error.error || 'Conversion failed');
       }
 
-      if (response.status === 202) {
-        const result = await response.json();
-        await pollJobStatus(result.jobId, file.name, toFormat);
-
-        const downloadResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-file/status/${result.jobId}`
-        );
-
-        if (downloadResponse.ok) {
-          const blob = await downloadResponse.blob();
-          const fileName = `${file.name.split('.')[0]}.${toFormat}`;
-          downloadFile(blob, fileName);
-        }
-      } else {
-        const blob = await response.blob();
-        const fileName = `${file.name.split('.')[0]}.${toFormat}`;
-        downloadFile(blob, fileName);
-      }
+      const blob = await response.blob();
+      const fileName = `${file.name.split('.')[0]}.${toFormat}`;
+      downloadFile(blob, fileName);
 
       const { error: updateError } = await supabase
         .from('conversion_history')

@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { PDFDocument } from "npm:pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,75 +7,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const CONVERSION_SERVER_URL = Deno.env.get("CONVERSION_SERVER_URL") || "https://convertio360-production.up.railway.app";
+async function convertImageToPDF(imageBuffer: Uint8Array, imageType: string): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
 
-const SIMPLE_CONVERSIONS = ["txt", "md", "html", "json", "xml", "csv"];
+  let image;
+  if (imageType === 'png') {
+    image = await pdfDoc.embedPng(imageBuffer);
+  } else if (imageType === 'jpg' || imageType === 'jpeg') {
+    image = await pdfDoc.embedJpg(imageBuffer);
+  } else {
+    throw new Error(`Unsupported image type: ${imageType}`);
+  }
 
-function needsServerConversion(inputFormat: string, outputFormat: string): boolean {
-  const isImage = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(inputFormat) ||
-                  ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(outputFormat);
-  const isVideo = ["mp4", "avi", "mov", "mkv", "webm", "flv"].includes(inputFormat) ||
-                  ["mp4", "avi", "mov", "mkv", "webm", "flv"].includes(outputFormat);
-  const isDocument = ["pdf", "docx", "doc", "odt", "rtf", "epub"].includes(inputFormat) ||
-                     ["pdf", "docx", "doc", "odt", "rtf", "epub"].includes(outputFormat);
+  const page = pdfDoc.addPage([image.width, image.height]);
+  page.drawImage(image, {
+    x: 0,
+    y: 0,
+    width: image.width,
+    height: image.height,
+  });
 
-  return isImage || isVideo || isDocument;
+  return await pdfDoc.save();
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
-  }
-
-  const url = new URL(req.url);
-
-  if (req.method === "GET" && url.pathname.includes("/status/")) {
-    try {
-      const jobId = url.pathname.split("/status/")[1];
-
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-
-      const { data: job, error } = await supabase
-        .from("conversion_jobs")
-        .select("*")
-        .eq("id", jobId)
-        .maybeSingle();
-
-      if (error || !job) {
-        return new Response(
-          JSON.stringify({ error: "Job not found" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (job.status === 'completed' && job.output_data) {
-        const outputBuffer = Uint8Array.from(atob(job.output_data), c => c.charCodeAt(0));
-        return new Response(
-          outputBuffer,
-          {
-            status: 200,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/octet-stream",
-              "Content-Disposition": `attachment; filename="${job.filename.replace(/\.[^.]+$/, '')}.${job.output_format}"`,
-            },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify(job),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
   }
 
   if (req.method !== "POST") {
@@ -98,46 +55,24 @@ Deno.serve(async (req: Request) => {
     }
 
     const inputFormat = file.name.split(".").pop()?.toLowerCase() || "";
+    const imageFormats = ["jpg", "jpeg", "png"];
 
-    if (needsServerConversion(inputFormat, outputFormat)) {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
+    if (imageFormats.includes(inputFormat) && outputFormat.toLowerCase() === "pdf") {
+      const arrayBuffer = await file.arrayBuffer();
+      const imageBuffer = new Uint8Array(arrayBuffer);
 
-      const { data: job, error: jobError } = await supabase
-        .from("conversion_jobs")
-        .insert({
-          filename: file.name,
-          input_format: inputFormat,
-          output_format: outputFormat,
-          file_size: file.size,
-          status: "pending"
-        })
-        .select()
-        .single();
-
-      if (jobError) {
-        throw new Error(`Failed to create job: ${jobError.message}`);
-      }
-
-      const hetznerFormData = new FormData();
-      hetznerFormData.append("file", file);
-      hetznerFormData.append("outputFormat", outputFormat);
-      hetznerFormData.append("jobId", job.id);
-
-      fetch(`${CONVERSION_SERVER_URL}/convert`, {
-        method: "POST",
-        body: hetznerFormData,
-      }).catch(err => console.error("Failed to send to conversion server:", err));
+      const pdfBuffer = await convertImageToPDF(imageBuffer, inputFormat);
 
       return new Response(
-        JSON.stringify({
-          jobId: job.id,
-          status: "processing",
-          message: "Conversion started. Use jobId to check status."
-        }),
-        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        pdfBuffer,
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${file.name.replace(/\.[^.]+$/, '')}.pdf"`,
+          },
+        }
       );
     } else {
       const text = await file.text();
