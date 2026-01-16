@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
 import { convertImage } from './converters/imageConverter.js';
@@ -8,6 +9,8 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 const upload = multer({ dest: '/tmp/uploads/' });
 
 const supabase = createClient(
@@ -102,6 +105,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`Hetzner conversion server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Conversion server running on port ${PORT}`);
 });
